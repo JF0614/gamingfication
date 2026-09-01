@@ -162,7 +162,43 @@ function renderProfile(student) {
     </small>
 
 </div>
+<!-- Rank Control -->
 
+<div class="rank-control mb-4">
+
+    <label class="form-label fw-semibold">
+        Rank Siswa
+    </label>
+
+    <div class="input-group">
+
+        <select id="rankSelect" class="form-select">
+
+            ${Object.entries(rankNames).map(([rank, name]) => `
+                <option
+                    value="${rank}"
+                    ${Number(student.rank) === Number(rank) ? "selected" : ""}
+                >
+                    ${name}
+                </option>
+            `).join("")}
+
+        </select>
+
+        <button
+            class="btn btn-warning"
+            onclick="updateRank()"
+        >
+            Ubah Rank
+        </button>
+
+    </div>
+
+    <small class="text-muted">
+        Rank dapat diubah oleh guru.
+    </small>
+
+</div>      
 
                         <!-- Badge -->
 
@@ -229,17 +265,23 @@ async function updateXP(amount) {
 
     try {
 
+        const isAdd = amount > 0;
+
+        const endpoint = isAdd
+            ? `${API_URL}/api/teacher/users/${studentId}/gem`
+            : `${API_URL}/api/teacher/users/${studentId}/gem/remove`;
+
         const response = await apiFetch(
-            `${API_URL}/api/teacher/students/${studentId}/xp`,
+            endpoint,
             {
-                method: "PATCH",
+                method: "POST",
 
                 headers: {
                     "Content-Type": "application/json"
                 },
 
                 body: JSON.stringify({
-                    amount
+                    gem: Math.abs(amount)
                 })
             }
         );
@@ -254,7 +296,7 @@ async function updateXP(amount) {
             );
         }
 
-        await loadStudentProfile();
+        renderProfile(data.student);
 
         showNotification(data.message, "success");
 
@@ -304,6 +346,64 @@ function removeXP() {
     }
 
     updateXP(-amount);
+}
+
+async function updateRank() {
+
+    const select = document.getElementById("rankSelect");
+
+    const rank = Number(select.value);
+
+    const rankName = rankNames[rank];
+
+    const confirmAction =
+        confirm(`Ubah rank siswa menjadi ${rankName}?`);
+
+    if (!confirmAction) {
+        return;
+    }
+
+    try {
+
+        const response = await apiFetch(
+            `${API_URL}/api/teacher/users/${studentId}/rank`,
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    rank
+                })
+            }
+        );
+
+        if (!response) return;
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.message || "Gagal mengubah rank"
+            );
+        }
+
+        renderProfile(data.student);
+
+        showNotification(
+            `Rank berhasil diubah menjadi ${rankName}`,
+            "success"
+        );
+
+    } catch (error) {
+
+        showNotification(
+            error.message,
+            "danger"
+        );
+    }
 }
 
 function showNotification(message, type = "success") {

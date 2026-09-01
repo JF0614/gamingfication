@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:3000";
+const API_URL = "https://worker.gamingfication.workers.dev";
 
 const loginForm = document.getElementById("loginForm");
 const message = document.getElementById("message");
