@@ -4,9 +4,17 @@ import mysql, { type Connection } from "mysql2/promise";
 import type { AppEnv } from "./types";
 import { authMiddleware, requireRole } from "./middleware/auth";
 import { getRank } from "./utils/rank";
+import { cors } from "hono/cors";
 
 const app = new Hono<{ Bindings: AppEnv  }>();
-
+app.use(
+    "*",
+    cors({
+        origin: "*",
+        allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowHeaders: ["Content-Type", "Authorization"],
+    })
+);
 // Test database
 app.get("/", async (c) => {
     let connection;
