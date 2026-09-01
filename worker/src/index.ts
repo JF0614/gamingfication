@@ -5,6 +5,7 @@ import type { AppEnv } from "./types";
 import { authMiddleware, requireRole } from "./middleware/auth";
 import { getRank } from "./utils/rank";
 import { cors } from "hono/cors";
+import bcrypt from "bcryptjs";
 
 const app = new Hono<{ Bindings: AppEnv  }>();
 app.use(
@@ -587,6 +588,129 @@ app.post(
             if (connection) {
                 await connection.end();
             }
+        }
+    }
+);
+
+// REGISTER STUDENT BY TEACHER
+app.post(
+    "/api/teacher/students",
+    authMiddleware,
+    requireRole("teacher"),
+    async (c) => {
+        try {
+            const body = await c.req.json<{
+                username: string;
+                password: string;
+            }>();
+
+            const username = body.username?.trim();
+            const password = body.password;
+
+            if (!username || !password) {
+                return c.json(
+                    {
+                        message: "Username dan password wajib diisi",
+                    },
+                    400
+                );
+            }
+
+            if (username.length < 3) {
+                return c.json(
+                    {
+                        message: "Username minimal 3 karakter",
+                    },
+                    400
+                );
+            }
+
+            if (password.length < 6) {
+                return c.json(
+                    {
+                        message: "Password minimal 6 karakter",
+                    },
+                    400
+                );
+            }
+
+            let connection: Connection | undefined;
+
+            try {
+                connection = await mysql.createConnection({
+                    host: c.env.HYPERDRIVE.host,
+                    user: c.env.HYPERDRIVE.user,
+                    password: c.env.HYPERDRIVE.password,
+                    database: c.env.HYPERDRIVE.database,
+                    port: c.env.HYPERDRIVE.port,
+                    disableEval: true,
+                });
+
+                const [existingRows] = await connection.query(
+                    `SELECT id
+                     FROM users
+                     WHERE username = ?`,
+                    [username]
+                );
+
+                if (
+                    Array.isArray(existingRows) &&
+                    existingRows.length > 0
+                ) {
+                    return c.json(
+                        {
+                            message: "Username sudah digunakan",
+                        },
+                        409
+                    );
+                }
+
+                // Hash password
+                const passwordHash = await bcrypt.hash(password, 10);
+
+                const [result] = await connection.query(
+                    `INSERT INTO users
+                        (username, password, role, gem, \`rank\`)
+                     VALUES (?, ?, 'student', 0, 0)`,
+                    [
+                        username,
+                        passwordHash,
+                    ]
+                );
+
+                const insertResult =
+                    result as mysql.ResultSetHeader;
+
+                return c.json(
+                    {
+                        message: "Siswa berhasil didaftarkan",
+                        student: {
+                            id: insertResult.insertId,
+                            username,
+                            role: "student",
+                            gem: 0,
+                            rank: 0,
+                        },
+                    },
+                    201
+                );
+            } finally {
+                if (connection) {
+                    await connection.end();
+                }
+            }
+        } catch (error) {
+            console.error(
+                "Register student error:",
+                error
+            );
+
+            return c.json(
+                {
+                    message: "Terjadi kesalahan server",
+                },
+                500
+            );
         }
     }
 );

@@ -10,6 +10,102 @@ const currentUser = JSON.parse(localStorage.getItem("user"));
 
 let students = [];
 
+const addStudentForm = document.getElementById("addStudentForm");
+const addStudentMessage = document.getElementById("addStudentMessage");
+const addStudentBtn = document.getElementById("addStudentBtn");
+
+addStudentForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const username =
+        document.getElementById("studentUsername").value.trim();
+
+    const password =
+        document.getElementById("studentPassword").value;
+
+    addStudentMessage.className = "alert d-none";
+    addStudentBtn.disabled = true;
+    addStudentBtn.textContent = "Mendaftarkan...";
+
+    try {
+        const response = await apiFetch(
+            `${API_URL}/api/teacher/students`,
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    username,
+                    password
+                })
+            }
+        );
+
+        if (!response) return;
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                data.message || "Gagal mendaftarkan siswa"
+            );
+        }
+
+        if (data.student) {
+            students.push(data.student);
+
+            students.sort((a, b) =>
+                a.username.localeCompare(b.username)
+            );
+
+            renderStudents(students);
+        }
+
+        addStudentMessage.className =
+            "alert alert-success";
+
+        addStudentMessage.textContent =
+            data.message;
+
+        addStudentForm.reset();
+
+        // Tutup modal
+        setTimeout(() => {
+            const modalElement =
+                document.getElementById("addStudentModal");
+
+            const modal =
+                bootstrap.Modal.getInstance(modalElement);
+
+            if (modal) {
+                modal.hide();
+            }
+
+            addStudentMessage.className =
+                "alert d-none";
+
+        }, 700);
+
+
+    } catch (error) {
+
+        addStudentMessage.className =
+            "alert alert-danger";
+
+        addStudentMessage.textContent =
+            error.message;
+
+    } finally {
+
+        addStudentBtn.disabled = false;
+        addStudentBtn.textContent =
+            "Daftarkan Siswa";
+    }
+});
+
 if (currentUser) {
     document.getElementById("teacherName").textContent =
         currentUser.username;
@@ -26,7 +122,8 @@ async function loadStudents() {
         if (!response) return;
 
         const data = await response.json();
-
+        console.log("REGISTER RESPONSE:", data);
+        
         if (!response.ok) {
             throw new Error(
                 data.message || "Gagal mengambil siswa"
